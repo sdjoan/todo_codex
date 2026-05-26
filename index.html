@@ -32,8 +32,14 @@
               </button>
             </div>
             <div class="summary" aria-live="polite">
-              <span id="remainingCount">0</span>
-              <span>남음</span>
+              <svg class="progress-ring" viewBox="0 0 88 88" aria-hidden="true">
+                <circle class="ring-track" cx="44" cy="44" r="38" />
+                <circle class="ring-fill" id="progressRingFill" cx="44" cy="44" r="38" />
+              </svg>
+              <div class="summary-inner">
+                <span id="remainingCount">0</span>
+                <span>남음</span>
+              </div>
             </div>
           </div>
         </header>

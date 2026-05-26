@@ -169,25 +169,58 @@ h1 {
 }
 
 .summary {
-  min-width: 96px;
-  min-height: 96px;
-  border-radius: 8px;
-  background: var(--ink);
-  color: #fff;
+  position: relative;
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
-  align-content: center;
+}
+
+.progress-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.ring-track {
+  fill: var(--ink);
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 4;
+}
+
+.ring-fill {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.88);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 238.76;
+  stroke-dashoffset: 238.76;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.summary-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  text-align: center;
+  line-height: 1;
   gap: 3px;
 }
 
-.summary span:first-child {
-  font-size: 2rem;
+.summary-inner span:first-child {
+  font-size: 1.75rem;
   font-weight: 800;
 }
 
-.summary span:last-child {
+.summary-inner span:last-child {
   color: rgba(255, 255, 255, 0.72);
-  font-size: 0.85rem;
+  font-size: 0.78rem;
 }
 
 .composer {
@@ -487,6 +520,7 @@ select:focus {
 }
 
 .todo-item {
+  position: relative;
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto 44px;
   align-items: center;
@@ -500,6 +534,28 @@ select:focus {
     border-color 0.18s ease,
     box-shadow 0.18s ease,
     transform 0.18s ease;
+}
+
+.todo-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 8px 0 0 8px;
+}
+
+.todo-item.priority-high::before {
+  background: var(--danger);
+}
+
+.todo-item.priority-normal::before {
+  background: var(--accent);
+}
+
+.todo-item.priority-low::before {
+  background: var(--low);
 }
 
 .todo-item:hover {
@@ -683,6 +739,49 @@ select:focus {
   background: var(--line);
 }
 
+.section-separator {
+  list-style: none;
+  padding: 4px 0 2px;
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.section-toggle:hover {
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+
+.chevron {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
 .empty {
   display: grid;
   place-items: center;
@@ -722,8 +821,8 @@ select:focus {
   }
 
   .summary {
-    min-width: 78px;
-    min-height: 78px;
+    width: 74px;
+    height: 74px;
   }
 
   .composer {

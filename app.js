@@ -27,6 +27,9 @@ const filterButtons = document.querySelectorAll(".filter");
 const quickDateButtons = document.querySelectorAll("[data-quick-date]");
 const themeButtons = document.querySelectorAll("[data-theme]");
 const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+const progressRingFill = document.querySelector("#progressRingFill");
+
+const RING_CIRCUMFERENCE = 2 * Math.PI * 38;
 
 let todos = loadTodos();
 let currentFilter = "all";
@@ -34,6 +37,7 @@ let searchTerm = "";
 let recognition = null;
 let isListening = false;
 let editingId = null;
+let completedCollapsed = true;
 
 applyTheme(loadTheme());
 setupVoiceInput();
@@ -518,14 +522,16 @@ function startOfToday() {
 function render() {
   list.replaceChildren();
 
-  const visibleTodos = todos.filter(matchesView);
-  const completed = todos.filter((todo) => todo.completed).length;
+  const completed = todos.filter((t) => t.completed).length;
   const remaining = todos.length - completed;
 
   totalCount.textContent = todos.length;
   doneCount.textContent = completed;
   remainingCount.textContent = remaining;
   clearCompleted.disabled = completed === 0;
+  updateProgressRing(completed);
+
+  const visibleTodos = todos.filter(matchesView);
 
   if (visibleTodos.length === 0) {
     const empty = document.createElement("li");
@@ -535,47 +541,95 @@ function render() {
     return;
   }
 
-  visibleTodos.forEach((todo) => {
-    const item = template.content.firstElementChild.cloneNode(true);
-    const checkbox = item.querySelector(".todo-check");
-    const title = item.querySelector(".todo-title");
-    const priority = item.querySelector(".priority");
-    const due = item.querySelector(".due");
-    const editButton = item.querySelector(".edit-button");
-    const deleteButton = item.querySelector(".delete-button");
+  if (currentFilter !== "all" || searchTerm) {
+    visibleTodos.forEach((todo) => list.append(buildTodoItem(todo)));
+    return;
+  }
 
-    item.classList.toggle("completed", todo.completed);
-    item.classList.toggle("editing", todo.id === editingId);
-    checkbox.checked = todo.completed;
-    title.value = todo.title;
-    priority.className = `priority ${todo.priority || "normal"}`;
-    priority.innerHTML = `${priorityIcon(todo.priority)}<span>${priorityLabel(todo.priority)}</span>`;
-    due.textContent = dueLabel(todo.due);
-    due.className = `due ${dueStatus(todo.due)}`;
+  const activeTodos = visibleTodos.filter((t) => !t.completed);
+  const completedTodos = visibleTodos.filter((t) => t.completed);
 
-    checkbox.addEventListener("change", () => {
-      updateTodo(todo.id, { completed: checkbox.checked });
+  if (activeTodos.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = completedTodos.length > 0 ? "할 일을 모두 완료했습니다!" : getEmptyMessage();
+    list.append(empty);
+  } else {
+    activeTodos.forEach((todo) => list.append(buildTodoItem(todo)));
+  }
+
+  if (completedTodos.length > 0) {
+    const separator = document.createElement("li");
+    separator.className = "section-separator";
+    const toggleBtn = document.createElement("button");
+    toggleBtn.className = "section-toggle";
+    toggleBtn.type = "button";
+    toggleBtn.setAttribute("aria-expanded", String(!completedCollapsed));
+    toggleBtn.innerHTML = `<span>완료됨 ${completedTodos.length}개</span>
+      <svg class="chevron${completedCollapsed ? "" : " open"}" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6 9l6 6 6-6"/>
+      </svg>`;
+    toggleBtn.addEventListener("click", () => {
+      completedCollapsed = !completedCollapsed;
+      render();
     });
+    separator.append(toggleBtn);
+    list.append(separator);
 
-    title.addEventListener("change", () => {
-      const nextTitle = title.value.trim();
-      if (nextTitle) {
-        updateTodo(todo.id, { title: nextTitle });
-      } else {
-        removeTodo(todo.id);
-      }
-    });
+    if (!completedCollapsed) {
+      completedTodos.forEach((todo) => list.append(buildTodoItem(todo)));
+    }
+  }
+}
 
-    title.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        title.blur();
-      }
-    });
+function updateProgressRing(completed) {
+  if (!progressRingFill) return;
+  const ratio = todos.length > 0 ? completed / todos.length : 0;
+  progressRingFill.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - ratio);
+}
 
-    deleteButton.addEventListener("click", () => removeTodo(todo.id));
-    editButton.addEventListener("click", () => setEditMode(todo.id));
-    list.append(item);
+function buildTodoItem(todo) {
+  const item = template.content.firstElementChild.cloneNode(true);
+  const checkbox = item.querySelector(".todo-check");
+  const title = item.querySelector(".todo-title");
+  const priority = item.querySelector(".priority");
+  const due = item.querySelector(".due");
+  const editButton = item.querySelector(".edit-button");
+  const deleteButton = item.querySelector(".delete-button");
+
+  item.classList.toggle("completed", todo.completed);
+  item.classList.toggle("editing", todo.id === editingId);
+  item.classList.add(`priority-${todo.priority || "normal"}`);
+  checkbox.checked = todo.completed;
+  title.value = todo.title;
+  priority.className = `priority ${todo.priority || "normal"}`;
+  priority.innerHTML = `${priorityIcon(todo.priority)}<span>${priorityLabel(todo.priority)}</span>`;
+  due.textContent = dueLabel(todo.due);
+  due.className = `due ${dueStatus(todo.due)}`;
+
+  checkbox.addEventListener("change", () => {
+    updateTodo(todo.id, { completed: checkbox.checked });
   });
+
+  title.addEventListener("change", () => {
+    const nextTitle = title.value.trim();
+    if (nextTitle) {
+      updateTodo(todo.id, { title: nextTitle });
+    } else {
+      removeTodo(todo.id);
+    }
+  });
+
+  title.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      title.blur();
+    }
+  });
+
+  deleteButton.addEventListener("click", () => removeTodo(todo.id));
+  editButton.addEventListener("click", () => setEditMode(todo.id));
+
+  return item;
 }
 
 function matchesView(todo) {
