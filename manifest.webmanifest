@@ -1,0 +1,19 @@
+{
+  "name": "Todo 일정 관리",
+  "short_name": "Todo",
+  "description": "음성 등록과 일정 관리를 지원하는 Todo 웹앱",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f2",
+  "theme_color": "#0d7a5f",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

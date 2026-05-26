@@ -1,8 +1,16 @@
 const STORAGE_KEY = "todo_0526_items";
+const THEME_KEY = "todo_0526_theme";
+const THEME_COLORS = {
+  forest: "#0d7a5f",
+  ocean: "#2667a6",
+  coral: "#c94a2d",
+};
 
 const form = document.querySelector("#todoForm");
 const input = document.querySelector("#todoInput");
 const dueInput = document.querySelector("#dueInput");
+const dateInput = document.querySelector("#dateInput");
+const timeInput = document.querySelector("#timeInput");
 const priorityInput = document.querySelector("#priorityInput");
 const voiceButton = document.querySelector("#voiceButton");
 const voiceStatus = document.querySelector("#voiceStatus");
@@ -16,6 +24,9 @@ const doneCount = document.querySelector("#doneCount");
 const remainingCount = document.querySelector("#remainingCount");
 const clearCompleted = document.querySelector("#clearCompleted");
 const filterButtons = document.querySelectorAll(".filter");
+const quickDateButtons = document.querySelectorAll("[data-quick-date]");
+const themeButtons = document.querySelectorAll("[data-theme]");
+const themeColorMeta = document.querySelector('meta[name="theme-color"]');
 
 let todos = loadTodos();
 let currentFilter = "all";
@@ -24,7 +35,10 @@ let recognition = null;
 let isListening = false;
 let editingId = null;
 
+applyTheme(loadTheme());
 setupVoiceInput();
+registerServiceWorker();
+updateQuickDateState();
 render();
 
 form.addEventListener("submit", (event) => {
@@ -35,7 +49,7 @@ form.addEventListener("submit", (event) => {
 
   const payload = {
     title,
-    due: dueInput.value,
+    due: buildDueValue(),
     priority: priorityInput.value,
   };
 
@@ -50,6 +64,21 @@ form.addEventListener("submit", (event) => {
 
 cancelEditButton.addEventListener("click", () => {
   clearEditMode();
+});
+
+dateInput.addEventListener("change", syncDueInput);
+timeInput.addEventListener("change", syncDueInput);
+
+quickDateButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setQuickDate(button.dataset.quickDate);
+  });
+});
+
+themeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    applyTheme(button.dataset.theme);
+  });
 });
 
 searchInput.addEventListener("input", (event) => {
@@ -141,6 +170,34 @@ function setupVoiceInput() {
   });
 }
 
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  if (!["https:", "http:"].includes(window.location.protocol)) return;
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {
+      // The app still works without offline caching.
+    });
+  });
+}
+
+function applyTheme(theme) {
+  const nextTheme = THEME_COLORS[theme] ? theme : "forest";
+  document.body.dataset.theme = nextTheme;
+  localStorage.setItem(THEME_KEY, nextTheme);
+  if (themeColorMeta) themeColorMeta.content = THEME_COLORS[nextTheme];
+
+  themeButtons.forEach((button) => {
+    const active = button.dataset.theme === nextTheme;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function loadTheme() {
+  return localStorage.getItem(THEME_KEY) || "forest";
+}
+
 function addTodo({ title, due = "", priority = "normal" }) {
   todos.unshift({
     id: crypto.randomUUID(),
@@ -159,7 +216,7 @@ function setEditMode(id) {
 
   editingId = id;
   input.value = todo.title;
-  dueInput.value = normalizeDueInputValue(todo.due);
+  setDueFields(todo.due);
   priorityInput.value = todo.priority || "normal";
   submitButton.textContent = "저장";
   cancelEditButton.classList.remove("hidden");
@@ -179,8 +236,81 @@ function clearEditMode() {
 
 function resetComposer() {
   form.reset();
+  dueInput.value = "";
   priorityInput.value = "normal";
+  updateQuickDateState();
   input.focus();
+}
+
+function setQuickDate(value) {
+  if (value === "clear") {
+    dateInput.value = "";
+    timeInput.value = "";
+    syncDueInput();
+    return;
+  }
+
+  const target = new Date();
+  target.setHours(0, 0, 0, 0);
+
+  if (value === "tomorrow") {
+    target.setDate(target.getDate() + 1);
+  }
+
+  if (value === "next-week") {
+    target.setDate(target.getDate() + 7);
+  }
+
+  dateInput.value = toDateValue(target);
+  if (!timeInput.value) timeInput.value = "09:00";
+  syncDueInput();
+}
+
+function syncDueInput() {
+  dueInput.value = buildDueValue();
+  updateQuickDateState();
+}
+
+function buildDueValue() {
+  if (!dateInput.value) return "";
+  return `${dateInput.value}T${timeInput.value || "09:00"}`;
+}
+
+function setDueFields(due) {
+  const dueDate = parseDueDate(due);
+
+  if (!dueDate) {
+    dateInput.value = "";
+    timeInput.value = "";
+    dueInput.value = "";
+    updateQuickDateState();
+    return;
+  }
+
+  dateInput.value = toDateValue(dueDate);
+  timeInput.value = toTimeValue(dueDate);
+  syncDueInput();
+}
+
+function updateQuickDateState() {
+  const today = startOfToday();
+  const selectedDate = dateInput.value ? parseDueDate(dateInput.value) : null;
+
+  quickDateButtons.forEach((button) => {
+    let active = false;
+
+    if (button.dataset.quickDate === "clear") {
+      active = !dateInput.value;
+    } else if (selectedDate) {
+      const diffDays = Math.round((selectedDate - today) / 86400000);
+      active =
+        (button.dataset.quickDate === "today" && diffDays === 0) ||
+        (button.dataset.quickDate === "tomorrow" && diffDays === 1) ||
+        (button.dataset.quickDate === "next-week" && diffDays === 7);
+    }
+
+    button.classList.toggle("active", active);
+  });
 }
 
 function parseVoiceTodo(transcript) {
@@ -361,12 +491,28 @@ function addDays(date, days) {
 }
 
 function toDateTimeLocalValue(date) {
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${toDateValue(date)}T${hours}:${minutes}`;
+}
+
+function toDateValue(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toTimeValue(date) {
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  return `${hours}:${minutes}`;
+}
+
+function startOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
 }
 
 function render() {
@@ -506,8 +652,7 @@ function dueLabel(due) {
 function dueStatus(due) {
   if (!due) return "";
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = startOfToday();
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
 

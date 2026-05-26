@@ -3,7 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0d7a5f" />
+    <meta name="description" content="음성 등록과 일정 관리를 지원하는 Todo 웹앱" />
     <title>Todo</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/icon.svg" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -14,9 +19,22 @@
             <p class="eyebrow">오늘의 작업</p>
             <h1 id="app-title">Todo</h1>
           </div>
-          <div class="summary" aria-live="polite">
-            <span id="remainingCount">0</span>
-            <span>남음</span>
+          <div class="top-actions">
+            <div class="theme-switcher" aria-label="디자인 컬러 선택">
+              <button class="theme-option active" type="button" data-theme="forest" aria-label="그린 테마" aria-pressed="true">
+                <span class="swatch forest"></span>
+              </button>
+              <button class="theme-option" type="button" data-theme="ocean" aria-label="블루 테마" aria-pressed="false">
+                <span class="swatch ocean"></span>
+              </button>
+              <button class="theme-option" type="button" data-theme="coral" aria-label="코랄 테마" aria-pressed="false">
+                <span class="swatch coral"></span>
+              </button>
+            </div>
+            <div class="summary" aria-live="polite">
+              <span id="remainingCount">0</span>
+              <span>남음</span>
+            </div>
           </div>
         </header>
 
@@ -25,10 +43,20 @@
             <span>할 일</span>
             <input id="todoInput" name="todo" type="text" placeholder="새 할 일을 입력하세요" maxlength="120" required />
           </label>
-          <label class="field">
+          <div class="field schedule-field">
             <span>마감</span>
-            <input id="dueInput" name="due" type="datetime-local" />
-          </label>
+            <input id="dueInput" name="due" type="hidden" />
+            <div class="schedule-picker">
+              <input id="dateInput" type="date" aria-label="마감 날짜" />
+              <input id="timeInput" type="time" aria-label="마감 시간" />
+            </div>
+            <div class="quick-dates" aria-label="빠른 날짜 선택">
+              <button type="button" data-quick-date="today">오늘</button>
+              <button type="button" data-quick-date="tomorrow">내일</button>
+              <button type="button" data-quick-date="next-week">다음 주</button>
+              <button type="button" data-quick-date="clear">없음</button>
+            </div>
+          </div>
           <label class="field">
             <span>우선순위</span>
             <select id="priorityInput" name="priority">
@@ -53,6 +81,7 @@
             </svg>
             <span class="visually-hidden">음성으로 일정 등록</span>
           </button>
+          <div class="voice-callout" aria-hidden="true">말로 일정 추가</div>
           <button id="submitButton" class="primary-button" type="submit">추가</button>
           <button id="cancelEditButton" class="ghost-button cancel-edit hidden" type="button">취소</button>
         </form>
