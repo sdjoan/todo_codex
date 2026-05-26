@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Todo</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-labelledby="app-title">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">오늘의 작업</p>
+            <h1 id="app-title">Todo</h1>
+          </div>
+          <div class="summary" aria-live="polite">
+            <span id="remainingCount">0</span>
+            <span>남음</span>
+          </div>
+        </header>
+
+        <form id="todoForm" class="composer" autocomplete="off">
+          <label class="field text-field">
+            <span>할 일</span>
+            <input id="todoInput" name="todo" type="text" placeholder="새 할 일을 입력하세요" maxlength="120" required />
+          </label>
+          <label class="field">
+            <span>마감</span>
+            <input id="dueInput" name="due" type="datetime-local" />
+          </label>
+          <label class="field">
+            <span>우선순위</span>
+            <select id="priorityInput" name="priority">
+              <option value="normal">보통</option>
+              <option value="high">높음</option>
+              <option value="low">낮음</option>
+            </select>
+          </label>
+          <button id="voiceButton" class="voice-button" type="button" aria-pressed="false">녹음</button>
+          <button class="primary-button" type="submit">추가</button>
+        </form>
+
+        <p id="voiceStatus" class="voice-status" aria-live="polite"></p>
+
+        <div class="tools">
+          <label class="search">
+            <span class="visually-hidden">검색</span>
+            <input id="searchInput" type="search" placeholder="검색" />
+          </label>
+          <div class="filters" role="tablist" aria-label="할 일 필터">
+            <button class="filter active" type="button" data-filter="all" role="tab" aria-selected="true">전체</button>
+            <button class="filter" type="button" data-filter="active" role="tab" aria-selected="false">진행</button>
+            <button class="filter" type="button" data-filter="completed" role="tab" aria-selected="false">완료</button>
+          </div>
+        </div>
+
+        <ul id="todoList" class="todo-list" aria-live="polite"></ul>
+
+        <footer class="footer">
+          <div class="stats">
+            <span><strong id="totalCount">0</strong> 전체</span>
+            <span><strong id="doneCount">0</strong> 완료</span>
+          </div>
+          <button id="clearCompleted" class="ghost-button" type="button">완료 삭제</button>
+        </footer>
+      </section>
+    </main>
+
+    <template id="todoTemplate">
+      <li class="todo-item">
+        <label class="check-wrap">
+          <input class="todo-check" type="checkbox" />
+          <span></span>
+        </label>
+        <div class="todo-content">
+          <input class="todo-title" type="text" maxlength="120" />
+          <div class="meta">
+            <span class="priority"></span>
+            <span class="due"></span>
+          </div>
+        </div>
+        <button class="icon-button delete-button" type="button" aria-label="삭제">×</button>
+      </li>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
