@@ -6,6 +6,8 @@ const dueInput = document.querySelector("#dueInput");
 const priorityInput = document.querySelector("#priorityInput");
 const voiceButton = document.querySelector("#voiceButton");
 const voiceStatus = document.querySelector("#voiceStatus");
+const submitButton = document.querySelector("#submitButton");
+const cancelEditButton = document.querySelector("#cancelEditButton");
 const searchInput = document.querySelector("#searchInput");
 const list = document.querySelector("#todoList");
 const template = document.querySelector("#todoTemplate");
@@ -20,6 +22,7 @@ let currentFilter = "all";
 let searchTerm = "";
 let recognition = null;
 let isListening = false;
+let editingId = null;
 
 setupVoiceInput();
 render();
@@ -30,15 +33,23 @@ form.addEventListener("submit", (event) => {
   const title = input.value.trim();
   if (!title) return;
 
-  addTodo({
+  const payload = {
     title,
     due: dueInput.value,
     priority: priorityInput.value,
-  });
+  };
 
-  form.reset();
-  priorityInput.value = "normal";
-  input.focus();
+  if (editingId) {
+    updateTodo(editingId, payload);
+    clearEditMode();
+  } else {
+    addTodo(payload);
+    resetComposer();
+  }
+});
+
+cancelEditButton.addEventListener("click", () => {
+  clearEditMode();
 });
 
 searchInput.addEventListener("input", (event) => {
@@ -95,14 +106,16 @@ function setupVoiceInput() {
     isListening = true;
     voiceButton.classList.add("listening");
     voiceButton.setAttribute("aria-pressed", "true");
-    voiceButton.textContent = "중지";
+    voiceButton.setAttribute("aria-label", "음성 인식 중지");
+    voiceButton.title = "음성 인식 중지";
   });
 
   recognition.addEventListener("end", () => {
     isListening = false;
     voiceButton.classList.remove("listening");
     voiceButton.setAttribute("aria-pressed", "false");
-    voiceButton.textContent = "녹음";
+    voiceButton.setAttribute("aria-label", "음성으로 일정 등록");
+    voiceButton.title = "음성으로 일정 등록: 내일 오후 3시 병원 예약 중요";
   });
 
   recognition.addEventListener("result", (event) => {
@@ -138,6 +151,36 @@ function addTodo({ title, due = "", priority = "normal" }) {
     createdAt: new Date().toISOString(),
   });
   saveAndRender();
+}
+
+function setEditMode(id) {
+  const todo = todos.find((item) => item.id === id);
+  if (!todo) return;
+
+  editingId = id;
+  input.value = todo.title;
+  dueInput.value = normalizeDueInputValue(todo.due);
+  priorityInput.value = todo.priority || "normal";
+  submitButton.textContent = "저장";
+  cancelEditButton.classList.remove("hidden");
+  voiceStatus.textContent = "수정할 내용을 바꾼 뒤 저장하세요.";
+  input.focus();
+  render();
+}
+
+function clearEditMode() {
+  editingId = null;
+  submitButton.textContent = "추가";
+  cancelEditButton.classList.add("hidden");
+  voiceStatus.textContent = "";
+  resetComposer();
+  render();
+}
+
+function resetComposer() {
+  form.reset();
+  priorityInput.value = "normal";
+  input.focus();
 }
 
 function parseVoiceTodo(transcript) {
@@ -352,9 +395,11 @@ function render() {
     const title = item.querySelector(".todo-title");
     const priority = item.querySelector(".priority");
     const due = item.querySelector(".due");
+    const editButton = item.querySelector(".edit-button");
     const deleteButton = item.querySelector(".delete-button");
 
     item.classList.toggle("completed", todo.completed);
+    item.classList.toggle("editing", todo.id === editingId);
     checkbox.checked = todo.completed;
     title.value = todo.title;
     priority.textContent = priorityLabel(todo.priority);
@@ -382,6 +427,7 @@ function render() {
     });
 
     deleteButton.addEventListener("click", () => removeTodo(todo.id));
+    editButton.addEventListener("click", () => setEditMode(todo.id));
     list.append(item);
   });
 }
@@ -407,6 +453,12 @@ function updateTodo(id, patch) {
 
 function removeTodo(id) {
   todos = todos.filter((todo) => todo.id !== id);
+  if (editingId === id) {
+    editingId = null;
+    submitButton.textContent = "추가";
+    cancelEditButton.classList.add("hidden");
+    resetComposer();
+  }
   saveAndRender();
 }
 
@@ -471,6 +523,15 @@ function parseDueDate(due) {
   const normalizedDue = due.includes("T") ? due : `${due}T00:00`;
   const dueDate = new Date(normalizedDue);
   return Number.isNaN(dueDate.getTime()) ? null : dueDate;
+}
+
+function normalizeDueInputValue(due) {
+  if (!due) return "";
+
+  const dueDate = parseDueDate(due);
+  if (!dueDate) return "";
+
+  return toDateTimeLocalValue(dueDate);
 }
 
 function getEmptyMessage() {
