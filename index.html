@@ -20,6 +20,12 @@
             <h1 id="app-title">Todo</h1>
           </div>
           <div class="top-actions">
+            <button id="summaryButton" class="ai-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+              </svg>
+              AI 요약
+            </button>
             <div class="theme-switcher" aria-label="디자인 컬러 선택">
               <button class="theme-option active" type="button" data-theme="forest" aria-label="그린 테마" aria-pressed="true">
                 <span class="swatch forest"></span>
@@ -137,12 +143,31 @@
           <div class="meta">
             <span class="priority"></span>
             <span class="due"></span>
+            <span class="ai-tag"></span>
           </div>
         </div>
-        <button class="text-button edit-button" type="button">수정</button>
+        <div class="item-actions">
+          <button class="text-button breakdown-button" type="button">분해</button>
+          <button class="text-button edit-button" type="button">수정</button>
+        </div>
         <button class="icon-button delete-button" type="button" aria-label="삭제">×</button>
       </li>
     </template>
+
+    <div id="summaryModal" class="summary-modal hidden" role="dialog" aria-modal="true" aria-labelledby="summaryModalTitle">
+      <div class="summary-modal-box">
+        <div class="summary-modal-header">
+          <span id="summaryModalTitle">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+            </svg>
+            AI 요약
+          </span>
+          <button id="closeSummaryModal" class="icon-button" type="button" aria-label="닫기">×</button>
+        </div>
+        <div id="summaryModalBody"></div>
+      </div>
+    </div>
 
     <script src="./app.js"></script>
   </body>

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check /mnt/c/Users/vmfh9/OneDrive/Documents/todo_0526/server.js)",
+      "Bash(node --check /mnt/c/Users/vmfh9/OneDrive/Documents/todo_0526/app.js)"
+    ]
+  }
+}

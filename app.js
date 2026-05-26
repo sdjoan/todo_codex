@@ -31,6 +31,19 @@ const progressRingFill = document.querySelector("#progressRingFill");
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 38;
 
+const TAGS = {
+  업무:   { color: "#1d4ed8", bg: "#eff6ff" },
+  개인:   { color: "#0d7a5f", bg: "#ecfdf5" },
+  건강:   { color: "#be3a1a", bg: "#fff1ee" },
+  학습:   { color: "#7c3aed", bg: "#f5f3ff" },
+  쇼핑:   { color: "#b45309", bg: "#fffbeb" },
+  가족:   { color: "#be185d", bg: "#fdf2f8" },
+  기타:   { color: "#667269", bg: "#f4f6f2" },
+};
+
+const taggingIds = new Set();
+let breakdownState = null;
+
 let todos = loadTodos();
 let currentFilter = "all";
 let searchTerm = "";
@@ -39,8 +52,14 @@ let isListening = false;
 let editingId = null;
 let completedCollapsed = true;
 
+const summaryButton = document.querySelector("#summaryButton");
+const summaryModal = document.querySelector("#summaryModal");
+const closeSummaryModal = document.querySelector("#closeSummaryModal");
+const summaryModalBody = document.querySelector("#summaryModalBody");
+
 applyTheme(loadTheme());
 setupVoiceInput();
+setupSummaryModal();
 registerServiceWorker();
 updateQuickDateState();
 render();
@@ -203,8 +222,9 @@ function loadTheme() {
 }
 
 function addTodo({ title, due = "", priority = "normal" }) {
+  const id = crypto.randomUUID();
   todos.unshift({
-    id: crypto.randomUUID(),
+    id,
     title,
     due,
     priority,
@@ -212,6 +232,7 @@ function addTodo({ title, due = "", priority = "normal" }) {
     createdAt: new Date().toISOString(),
   });
   saveAndRender();
+  autoTag(id);
 }
 
 function setEditMode(id) {
@@ -542,7 +563,7 @@ function render() {
   }
 
   if (currentFilter !== "all" || searchTerm) {
-    visibleTodos.forEach((todo) => list.append(buildTodoItem(todo)));
+    visibleTodos.forEach((todo) => appendItem(todo));
     return;
   }
 
@@ -555,7 +576,7 @@ function render() {
     empty.textContent = completedTodos.length > 0 ? "할 일을 모두 완료했습니다!" : getEmptyMessage();
     list.append(empty);
   } else {
-    activeTodos.forEach((todo) => list.append(buildTodoItem(todo)));
+    activeTodos.forEach((todo) => appendItem(todo));
   }
 
   if (completedTodos.length > 0) {
@@ -577,8 +598,15 @@ function render() {
     list.append(separator);
 
     if (!completedCollapsed) {
-      completedTodos.forEach((todo) => list.append(buildTodoItem(todo)));
+      completedTodos.forEach((todo) => appendItem(todo));
     }
+  }
+}
+
+function appendItem(todo) {
+  list.append(buildTodoItem(todo));
+  if (breakdownState?.todoId === todo.id) {
+    list.append(buildBreakdownPanel(todo));
   }
 }
 
@@ -594,8 +622,10 @@ function buildTodoItem(todo) {
   const title = item.querySelector(".todo-title");
   const priority = item.querySelector(".priority");
   const due = item.querySelector(".due");
+  const aiTagEl = item.querySelector(".ai-tag");
   const editButton = item.querySelector(".edit-button");
   const deleteButton = item.querySelector(".delete-button");
+  const breakdownButton = item.querySelector(".breakdown-button");
 
   item.classList.toggle("completed", todo.completed);
   item.classList.toggle("editing", todo.id === editingId);
@@ -606,6 +636,22 @@ function buildTodoItem(todo) {
   priority.innerHTML = `${priorityIcon(todo.priority)}<span>${priorityLabel(todo.priority)}</span>`;
   due.textContent = dueLabel(todo.due);
   due.className = `due ${dueStatus(todo.due)}`;
+
+  if (todo.tag && TAGS[todo.tag]) {
+    aiTagEl.textContent = todo.tag;
+    aiTagEl.style.color = TAGS[todo.tag].color;
+    aiTagEl.style.background = TAGS[todo.tag].bg;
+  } else if (taggingIds.has(todo.id)) {
+    aiTagEl.innerHTML = '<span class="tag-loading"></span>';
+  }
+
+  const isBreakingDown = breakdownState?.todoId === todo.id;
+  if (isBreakingDown && breakdownState.loading) {
+    breakdownButton.disabled = true;
+    breakdownButton.textContent = "분석 중";
+  } else if (isBreakingDown) {
+    breakdownButton.textContent = "닫기";
+  }
 
   checkbox.addEventListener("change", () => {
     updateTodo(todo.id, { completed: checkbox.checked });
@@ -628,6 +674,7 @@ function buildTodoItem(todo) {
 
   deleteButton.addEventListener("click", () => removeTodo(todo.id));
   editButton.addEventListener("click", () => setEditMode(todo.id));
+  breakdownButton.addEventListener("click", () => handleBreakdown(todo.id));
 
   return item;
 }
@@ -748,4 +795,217 @@ function getEmptyMessage() {
   if (currentFilter === "active") return "진행 중인 할 일이 없습니다.";
   if (currentFilter === "completed") return "완료된 할 일이 없습니다.";
   return "아직 등록된 할 일이 없습니다.";
+}
+
+// === AI ===
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+async function callClaude(messages, maxTokens = 300) {
+  const res = await fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: maxTokens,
+      messages,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data.content[0].text.trim();
+}
+
+async function autoTag(todoId) {
+  const todo = todos.find((t) => t.id === todoId);
+  if (!todo || todo.tag) return;
+
+  taggingIds.add(todoId);
+  render();
+
+  try {
+    const categories = Object.keys(TAGS).join(", ");
+    const text = await callClaude([
+      {
+        role: "user",
+        content: `다음 할 일의 카테고리를 아래 선택지 중 하나로만 답해. 단어만 답할 것.\n선택지: ${categories}\n할 일: "${todo.title}"`,
+      },
+    ], 12);
+    const tag = Object.keys(TAGS).find((k) => text.includes(k)) || "기타";
+    todos = todos.map((t) => (t.id === todoId ? { ...t, tag } : t));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  } catch {
+    // 태깅 실패는 무시
+  } finally {
+    taggingIds.delete(todoId);
+    render();
+  }
+}
+
+async function handleBreakdown(todoId) {
+  if (breakdownState?.todoId === todoId) {
+    breakdownState = null;
+    render();
+    return;
+  }
+
+  breakdownState = { todoId, loading: true, subtasks: null };
+  render();
+
+  try {
+    const todo = todos.find((t) => t.id === todoId);
+    const text = await callClaude([
+      {
+        role: "user",
+        content: `다음 할 일을 실행 가능한 단계 3~5개로 나눠줘. JSON 배열로만 답해. 예: ["단계1","단계2"]\n할 일: "${todo.title}"`,
+      },
+    ], 400);
+    const match = text.match(/\[[\s\S]*?\]/);
+    const subtasks = match ? JSON.parse(match[0]) : [];
+    breakdownState = { todoId, loading: false, subtasks };
+  } catch {
+    breakdownState = { todoId, loading: false, subtasks: null, error: "분해에 실패했습니다. 다시 시도해주세요." };
+  }
+  render();
+}
+
+function buildBreakdownPanel(todo) {
+  const li = document.createElement("li");
+  li.className = "breakdown-panel";
+
+  if (breakdownState.loading) {
+    li.innerHTML = `<div class="breakdown-loading"><div class="spin"></div>할 일을 분해하고 있어요...</div>`;
+    return li;
+  }
+
+  if (breakdownState.error) {
+    li.innerHTML = `<div class="breakdown-header">
+      <span>${escapeHtml(breakdownState.error)}</span>
+      <button class="icon-button breakdown-close" type="button" aria-label="닫기">×</button>
+    </div>`;
+    li.querySelector(".breakdown-close").addEventListener("click", () => {
+      breakdownState = null;
+      render();
+    });
+    return li;
+  }
+
+  const subtasks = breakdownState.subtasks || [];
+  const splitSvg = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v12M18 3v12M6 15a3 3 0 0 0 6 0M18 15a3 3 0 0 1-6 0"/></svg>`;
+
+  li.innerHTML = `
+    <div class="breakdown-header">
+      ${splitSvg}
+      <span>"${escapeHtml(todo.title)}" 분해 결과</span>
+      <button class="icon-button breakdown-close" type="button" aria-label="닫기">×</button>
+    </div>
+    <ul class="breakdown-subtasks">
+      ${subtasks.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}
+    </ul>
+    <div class="breakdown-actions">
+      <button class="primary-button add-all-btn" type="button">모두 추가 (${subtasks.length}개)</button>
+    </div>
+  `;
+
+  li.querySelector(".breakdown-close").addEventListener("click", () => {
+    breakdownState = null;
+    render();
+  });
+
+  li.querySelector(".add-all-btn").addEventListener("click", () => {
+    const parent = todos.find((t) => t.id === todo.id);
+    const newTodos = subtasks.map((title) => ({
+      id: crypto.randomUUID(),
+      title,
+      due: "",
+      priority: parent?.priority || "normal",
+      completed: false,
+      createdAt: new Date().toISOString(),
+    }));
+    const parentIndex = todos.findIndex((t) => t.id === todo.id);
+    todos.splice(parentIndex + 1, 0, ...newTodos);
+    breakdownState = null;
+    newTodos.forEach((t) => autoTag(t.id));
+    saveAndRender();
+  });
+
+  return li;
+}
+
+function setupSummaryModal() {
+  summaryButton.addEventListener("click", handleSummary);
+  closeSummaryModal.addEventListener("click", () => summaryModal.classList.add("hidden"));
+  summaryModal.addEventListener("click", (e) => {
+    if (e.target === summaryModal) summaryModal.classList.add("hidden");
+  });
+}
+
+async function handleSummary() {
+  if (todos.length === 0) {
+    renderSummary({ error: "요약할 할 일이 없습니다." });
+    summaryModal.classList.remove("hidden");
+    return;
+  }
+
+  summaryModal.classList.remove("hidden");
+  summaryModalBody.innerHTML = `<div class="summary-loading"><div class="spin"></div>분석 중...</div>`;
+  summaryButton.classList.add("loading");
+
+  try {
+    const listText = todos
+      .map((t) =>
+        `- [${t.completed ? "완료" : "미완료"}] ${t.title}${t.due ? ` (마감: ${dueLabel(t.due)})` : ""} [${priorityLabel(t.priority)}]`,
+      )
+      .join("\n");
+
+    const text = await callClaude([
+      {
+        role: "user",
+        content: `다음 할 일 목록을 분석해서 JSON으로 답해줘. 다른 말 없이 JSON만.\n형식: {"overview":"전체 상황 한 문장","focus":["집중1","집중2"],"tip":"조언"}\n\n${listText}`,
+      },
+    ], 500);
+
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("파싱 실패");
+    renderSummary({ data: JSON.parse(match[0]) });
+  } catch (err) {
+    renderSummary({ error: err.message || "AI 요약에 실패했습니다." });
+  } finally {
+    summaryButton.classList.remove("loading");
+  }
+}
+
+function renderSummary({ data, error }) {
+  if (error) {
+    summaryModalBody.innerHTML = `<p class="summary-error">${escapeHtml(error)}</p>`;
+    return;
+  }
+  summaryModalBody.innerHTML = `
+    <div class="summary-modal-body-inner">
+      <div class="summary-section">
+        <div class="summary-section-label">전체 상황</div>
+        <div class="summary-overview">${escapeHtml(data.overview)}</div>
+      </div>
+      ${data.focus?.length ? `
+      <div class="summary-section">
+        <div class="summary-section-label">오늘 집중</div>
+        <ul class="summary-focus-list">
+          ${data.focus.map((f) => `<li>${escapeHtml(f)}</li>`).join("")}
+        </ul>
+      </div>` : ""}
+      ${data.tip ? `
+      <div class="summary-section">
+        <div class="summary-section-label">조언</div>
+        <p class="summary-tip">${escapeHtml(data.tip)}</p>
+      </div>` : ""}
+    </div>
+  `;
 }
