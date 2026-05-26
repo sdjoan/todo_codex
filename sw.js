@@ -1,4 +1,4 @@
-const CACHE_NAME = "todo-webapp-v2";
+const CACHE_NAME = "todo-webapp-v5";
 const APP_ASSETS = [
   "./",
   "./index.html",

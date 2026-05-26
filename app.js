@@ -548,8 +548,8 @@ function render() {
     item.classList.toggle("editing", todo.id === editingId);
     checkbox.checked = todo.completed;
     title.value = todo.title;
-    priority.textContent = priorityLabel(todo.priority);
-    priority.className = `priority ${todo.priority}`;
+    priority.className = `priority ${todo.priority || "normal"}`;
+    priority.innerHTML = `${priorityIcon(todo.priority)}<span>${priorityLabel(todo.priority)}</span>`;
     due.textContent = dueLabel(todo.due);
     due.className = `due ${dueStatus(todo.due)}`;
 
@@ -628,6 +628,16 @@ function priorityLabel(priority) {
     normal: "보통",
     low: "낮음",
   }[priority] || "보통";
+}
+
+function priorityIcon(priority) {
+  const icons = {
+    high: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 5 7 13H5L12 5Z" /></svg>',
+    normal: '<svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" /></svg>',
+    low: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 19-7-13h14l-7 13Z" /></svg>',
+  };
+
+  return icons[priority] || icons.normal;
 }
 
 function dueLabel(due) {

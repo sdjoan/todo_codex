@@ -48,7 +48,14 @@
             <input id="dueInput" name="due" type="hidden" />
             <div class="schedule-picker">
               <input id="dateInput" type="date" aria-label="마감 날짜" />
-              <input id="timeInput" type="time" aria-label="마감 시간" />
+              <label class="time-control" title="마감 시간 설정">
+                <svg aria-hidden="true" viewBox="0 0 24 24" class="clock-icon">
+                  <circle cx="12" cy="12" r="8" />
+                  <path d="M12 8v5l3 2" />
+                </svg>
+                <span class="visually-hidden">마감 시간</span>
+                <input id="timeInput" type="time" aria-label="마감 시간" />
+              </label>
             </div>
             <div class="quick-dates" aria-label="빠른 날짜 선택">
               <button type="button" data-quick-date="today">오늘</button>
@@ -60,28 +67,29 @@
           <label class="field">
             <span>우선순위</span>
             <select id="priorityInput" name="priority">
-              <option value="normal">보통</option>
-              <option value="high">높음</option>
-              <option value="low">낮음</option>
+              <option value="normal">● 보통</option>
+              <option value="high">▲ 높음</option>
+              <option value="low">▼ 낮음</option>
             </select>
           </label>
-          <button
-            id="voiceButton"
-            class="voice-button"
-            type="button"
-            aria-label="음성으로 일정 등록"
-            aria-pressed="false"
-            title="음성으로 일정 등록: 내일 오후 3시 병원 예약 중요"
-          >
-            <svg aria-hidden="true" viewBox="0 0 24 24" class="mic-icon">
-              <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" />
-              <path d="M19 11a7 7 0 0 1-14 0" />
-              <path d="M12 18v3" />
-              <path d="M8 21h8" />
-            </svg>
-            <span class="visually-hidden">음성으로 일정 등록</span>
-          </button>
-          <div class="voice-callout" aria-hidden="true">말로 일정 추가</div>
+          <div class="voice-wrap">
+            <button
+              id="voiceButton"
+              class="voice-button"
+              type="button"
+              aria-label="음성으로 일정 등록"
+              aria-pressed="false"
+              title="음성으로 일정 등록: 내일 오후 3시 병원 예약 중요"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" class="mic-icon">
+                <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" />
+                <path d="M19 11a7 7 0 0 1-14 0" />
+                <path d="M12 18v3" />
+                <path d="M8 21h8" />
+              </svg>
+              <span class="visually-hidden">음성으로 일정 등록</span>
+            </button>
+          </div>
           <button id="submitButton" class="primary-button" type="submit">추가</button>
           <button id="cancelEditButton" class="ghost-button cancel-edit hidden" type="button">취소</button>
         </form>
