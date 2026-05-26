@@ -84,7 +84,11 @@ function setupVoiceInput() {
     }
 
     voiceStatus.textContent = "말씀하세요. 예: 내일 오후 3시 병원 예약 중요";
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      voiceStatus.textContent = "음성 인식을 다시 시작하려면 잠시 후 눌러주세요.";
+    }
   });
 
   recognition.addEventListener("start", () => {
@@ -229,9 +233,12 @@ function parseSpokenWeekday(today, qualifier, weekday) {
   let diff = targetDay - today.getDay();
 
   if (/다음/.test(qualifier)) {
-    diff += diff <= 0 ? 7 : 0;
-    diff += 7;
+    const currentMondayBasedDay = (today.getDay() + 6) % 7;
+    const targetMondayBasedDay = (targetDay + 6) % 7;
+    return addDays(today, 7 - currentMondayBasedDay + targetMondayBasedDay);
   } else if (!/이번/.test(qualifier) && diff <= 0) {
+    diff += 7;
+  } else if (/이번/.test(qualifier) && diff < 0) {
     diff += 7;
   }
 
