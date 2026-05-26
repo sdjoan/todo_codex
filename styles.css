@@ -620,12 +620,13 @@ select:focus {
   padding: 0;
   background: transparent;
   font-weight: 750;
+  display: flex;
+  align-items: center;
 }
 
-.todo-title:focus {
-  padding: 0 8px;
-  background: var(--surface-muted);
-  box-shadow: none;
+.todo-item.completed .todo-title {
+  color: var(--muted);
+  text-decoration: line-through;
 }
 
 .meta {
